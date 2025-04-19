@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Snake Game with Score & High Score</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #222;
+      color: #eee;
+      margin: 0;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    canvas {
+      background: #454444;
+      border: 2px solid #555;
+      margin-top: 10px;
+    }
+
+    #scoreboard {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    li {
+      margin: 2px 0;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      padding: 20px;
+      border-radius: 10px;
+      display: none;
+      text-align: center;
+    }
+
+    #overlay button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background: rgb(13, 82, 13);
+      border: none;
+      font-size: 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      color: #000;
+    }
+
+    #overlay h2 {
+      margin-bottom: 10px;
+    }
+
+    .stats {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-around;
+      gap: 20px;
+    }
+  </style>
+  <link rel="stylesheet" href="css/stratch.css">
+</head>
+<body>
+  <h1>🐍 Snake Game</h1>
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+  <a href="scratch.html" class="no-link-style">MY SEMESTER</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <a href="index.html" class="no-link-style">RESUME</a>
+
+  <div class="stats">
+    <div>🔥 Score: <span id="currentScore">0</span></div>
+    <div>🥇 High Score: <span id="highScore">0</span></div>
+  </div>
+
+  <div id="scoreboard">
+    <h2>🏆 Win Scores</h2>
+    <ul id="winScoresList"></ul>
+  </div>
+
+  <div id="overlay">
+    <h2 id="message"></h2>
+    <button onclick="hideOverlayAndRestart()">Play Again</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const scale = 20;
+    const rows = canvas.height / scale;
+    const columns = canvas.width / scale;
+
+    let snake, food, rock, direction, score, interval;
+    const winScoresKey = "snakeWinScores";
+    const highScoreKey = "snakeHighScore";
+
+    const scoreEl = document.getElementById("currentScore");
+    const highScoreEl = document.getElementById("highScore");
+
+    function setup() {
+      snake = [{ x: 5, y: 5 }];
+      direction = { x: 1, y: 0 };
+      score = 0;
+      updateScoreDisplay();
+      placeFood();
+      placeRock();
+      hideOverlay();
+
+      clearInterval(interval);
+      interval = setInterval(() => {
+        update();
+        draw();
+      }, 100);
+    }
+
+    function update() {
+      const head = {
+        x: snake[0].x + direction.x,
+        y: snake[0].y + direction.y,
+      };
+
+      // Wrap around edges
+      if (head.x >= columns) head.x = 0;
+      if (head.y >= rows) head.y = 0;
+      if (head.x < 0) head.x = columns - 1;
+      if (head.y < 0) head.y = rows - 1;
+
+      // Check self-collision
+      if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+        showOverlay("Game over! Final score: " + score);
+        clearInterval(interval);
+        return;
+      }
+
+      // Check rock collision
+      if (head.x === rock.x && head.y === rock.y) {
+        showOverlay("💀 You died!");
+        clearInterval(interval);
+        return;
+      }
+
+      snake.unshift(head);
+
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+        updateScoreDisplay();
+        placeFood();
+
+        if (snake.length === rows * columns - 1) {
+          showOverlay("🎉 You win! Score: " + score);
+          recordWin(score);
+          clearInterval(interval);
+        }
+      } else {
+        snake.pop();
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Snake
+      ctx.fillStyle = "#0f0";
+      snake.forEach(segment => {
+        ctx.fillRect(segment.x * scale, segment.y * scale, scale, scale);
+      });
+
+      // Food
+      ctx.fillStyle = "#f00";
+      ctx.fillRect(food.x * scale, food.y * scale, scale, scale);
+
+      // Rock
+      ctx.fillStyle = "#aaa";
+      ctx.fillRect(rock.x * scale, rock.y * scale, scale, scale);
+    }
+
+    function placeFood() {
+      let newFood;
+      do {
+        newFood = {
+          x: Math.floor(Math.random() * columns),
+          y: Math.floor(Math.random() * rows),
+        };
+      } while (snake.some(s => s.x === newFood.x && s.y === newFood.y) ||
+               (rock && newFood.x === rock.x && newFood.y === rock.y));
+      food = newFood;
+    }
+
+    function placeRock() {
+      let newRock;
+      do {
+        newRock = {
+          x: Math.floor(Math.random() * columns),
+          y: Math.floor(Math.random() * rows),
+        };
+      } while (snake.some(s => s.x === newRock.x && s.y === newRock.y) ||
+               (food && newRock.x === food.x && newRock.y === food.y));
+      rock = newRock;
+    }
+
+    function updateScoreDisplay() {
+      scoreEl.textContent = score;
+      const highScore = getHighScore();
+      if (score > highScore) {
+        localStorage.setItem(highScoreKey, score);
+      }
+      highScoreEl.textContent = getHighScore();
+    }
+
+    function getHighScore() {
+      return parseInt(localStorage.getItem(highScoreKey)) || 0;
+    }
+
+    function showOverlay(message) {
+      document.getElementById("message").textContent = message;
+      document.getElementById("overlay").style.display = "block";
+    }
+
+    function hideOverlayAndRestart() {
+      setup();
+    }
+
+    function hideOverlay() {
+      document.getElementById("overlay").style.display = "none";
+    }
+
+    window.addEventListener("keydown", (e) => {
+      const { key } = e;
+      if (key === "ArrowUp" && direction.y === 0) direction = { x: 0, y: -1 };
+      else if (key === "ArrowDown" && direction.y === 0) direction = { x: 0, y: 1 };
+      else if (key === "ArrowLeft" && direction.x === 0) direction = { x: -1, y: 0 };
+      else if (key === "ArrowRight" && direction.x === 0) direction = { x: 1, y: 0 };
+    });
+
+    function recordWin(score) {
+      const scores = JSON.parse(localStorage.getItem(winScoresKey)) || [];
+      scores.push({ score, date: new Date().toLocaleString() });
+      localStorage.setItem(winScoresKey, JSON.stringify(scores));
+      renderWinScores();
+    }
+
+    function renderWinScores() {
+      const scores = JSON.parse(localStorage.getItem(winScoresKey)) || [];
+      const list = document.getElementById("winScoresList");
+      list.innerHTML = "";
+      scores.forEach(entry => {
+        const li = document.createElement("li");
+        li.textContent = `Score: ${entry.score} - ${entry.date}`;
+        list.appendChild(li);
+      });
+    }
+
+    setup();
+    renderWinScores();
+  </script>
+</body>
+</html>
+
